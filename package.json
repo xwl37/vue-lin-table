@@ -1,10 +1,10 @@
 {
   "name": "vue-lin-table",
-  "description": "A Vue.js project",
+  "description": "基于Vue的大数据表格",
   "version": "1.0.0",
   "author": "xwlin <740646648@qq.com>",
   "license": "MIT",
-  "private": false,
+  "private": true,
   "main": "dist/vueLinTable.js",
   "scripts": {
     "dev": "cross-env NODE_ENV=development webpack-dev-server --open --hot",
