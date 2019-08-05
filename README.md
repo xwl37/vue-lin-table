@@ -1,6 +1,6 @@
 # lin-table
 
-> A Vue.js project
+> 基于Vue的大数据表格
 
 ## Build Setup
 
