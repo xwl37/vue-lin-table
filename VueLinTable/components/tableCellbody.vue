@@ -1,0 +1,75 @@
+<template>
+  <div
+    class="lin-table-body"
+    :style="{textAlign:columnsItem.align}"
+  >
+    <template v-if="showModuleKey=='selection'">
+      <checkBox
+        v-model="dataItem._checked"
+        :disabled="dataItem._disabled"
+        @on-change="checkOne"
+      ></checkBox>
+    </template>
+    <template v-if="showModuleKey=='default'">
+      <span>{{dataItem[columnsItem.key]}}</span>
+    </template>
+    <template v-if="showModuleKey=='render'">
+      <component
+        :render="columnsItem.render"
+        :params="{row:dataItem,column:columnsItem,index:dataItem._index}"
+        :is="currentView"
+      ></component>
+    </template>
+  </div>
+</template>
+<script>
+import child from "./child.js";
+import eventBus from "./eventBus.js";
+import checkBox from "./components/checkBox";
+export default {
+  name: "table-cell-body",
+  components: {
+    checkBox
+  },
+  props: {
+    columnsItem: {
+      type: Object,
+      default: () => {}
+    },
+    dataItem: {
+      type: Object,
+      default: () => {}
+    },
+    dataKey: Number
+  },
+  data() {
+    return {
+      currentView: child
+    };
+  },
+  computed: {
+    showModuleKey() {
+      if (this.columnsItem.type == "selection") {
+        return "selection";
+      } else if (typeof this.columnsItem.render == "undefined") {
+        return "default";
+      } else {
+        return "render";
+      }
+    }
+  },
+  methods: {
+    checkOne(item) {
+      eventBus.$emit("checkOne", item, this.dataItem);
+    }
+  }
+};
+</script>
+<style lang="less" scoped>
+.lin-table-body {
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
