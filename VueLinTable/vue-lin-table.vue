@@ -232,7 +232,7 @@ export default {
     //列最小宽度
     minWidth: {
       type: Number,
-      default: 100
+      default: 50
     },
     //列是否拖动
     isColDrag: {
@@ -365,8 +365,16 @@ export default {
       let leftColumns = [];
       let rightColumns = [];
       let columns = this.columns;
+      let avgWidth = 0;
+      //在拖动列宽的情况下，获取未设置宽度的列的宽度
+      if (this.isColDrag) {
+        avgWidth = this.handleAvgWidth();
+      }
       for (let c in columns) {
         let columnsItem = { ...columns[c] };
+        if (this.isColDrag && typeof columnsItem.width == "undefined") {
+          columnsItem.width = avgWidth;
+        }
         if (typeof columnsItem["fixed"] != "undefined") {
           columnsItem["isShow"] = false;
           if (typeof columnsItem.width == "undefined") {
@@ -455,12 +463,12 @@ export default {
           this.$refs["lin-table-hide-main"].scrollTop -= this.bodyRowHeight;
         }
       }
-      this.handleFirstDataKey();
     },
     //获取显示首数据标识
-    handleFirstDataKey() {
+    handleFirstDataKey(e) {
       let scrollTop = this.$refs["lin-table-hide-main"].scrollTop;
       this.firstDataKey = Math.ceil(scrollTop / this.bodyRowHeight);
+      this.$emit("table-scroll", e);
     },
     //按下宽度标识事件
     colWidthMouseDown(e, type, key) {
@@ -481,11 +489,13 @@ export default {
       if (this.mouseCheckColKey == null) return;
       switch (this.mouseCheckColType) {
         case "main":
+          let mainWidth =
+            this.$refs["main-header-th"][this.mouseCheckColKey].offsetWidth +
+            (e.clientX - this.mouseDownClientX);
           this.$set(
             this.mainColumns[this.mouseCheckColKey],
             "width",
-            this.$refs["main-header-th"][this.mouseCheckColKey].offsetWidth +
-              (e.clientX - this.mouseDownClientX)
+            mainWidth < this.minWidth ? this.minWidth : mainWidth
           );
           break;
         case "left":
@@ -495,12 +505,12 @@ export default {
           this.$set(
             this.leftColumns[this.mouseCheckColKey],
             "width",
-            leftWidth
+            leftWidth < this.minWidth ? this.minWidth : leftWidth
           );
           this.$set(
             this.mainColumns[this.mouseCheckColKey],
             "width",
-            leftWidth
+            leftWidth < this.minWidth ? this.minWidth : leftWidth
           );
           break;
         case "right":
@@ -518,12 +528,12 @@ export default {
                 this.mouseCheckColKey
             ],
             "width",
-            rightWidth
+            rightWidth < this.minWidth ? this.minWidth : rightWidth
           );
           this.$set(
             this.rightColumns[this.mouseCheckColKey],
             "width",
-            rightWidth
+            rightWidth < this.minWidth ? this.minWidth : rightWidth
           );
           break;
       }
@@ -533,6 +543,21 @@ export default {
       this.mouseCheckColType = null;
       this.mouseCheckColKey = null;
       this.$refs["drag-line"].style.left = "-100px";
+    },
+    //在拖动列宽的情况下，获取未设置宽度的列的宽度
+    handleAvgWidth() {
+      let tableClientWidth = this.tableClientWidth;
+      let setWidth = 0;
+      let col = 0;
+      for (let c in this.columns) {
+        if (typeof this.columns[c].width != "undefined") {
+          setWidth += this.columns[c].width;
+        } else {
+          col++;
+        }
+      }
+      let avgWidth = (tableClientWidth - this.columns.length - setWidth) / col;
+      return avgWidth < 100 ? 100 : avgWidth;
     }
   }
 };

@@ -2,7 +2,7 @@
 ### 前言
 在公司项目中使用前端框架中table组件时，发现显示数据量一多，table组件就会很卡顿，换了几种前端框架都没能解决这个问题。最后在Navicat软件内显示数据的表格中获取到灵感，自制了一个table组件供自己项目使用。
 
-写好发现该表格可以支持十几列字段并显示1万条数据还未卡顿（我尚未测试极限数值，但目前已满足项目需求）。
+
 
 ### npm
 
@@ -72,9 +72,9 @@ Vue.use(VueLinTable);
         </tr>
         <tr>
             <td>minWidth</td>
-            <td>列最小宽度(未设置宽度的列，浮动后的宽度)</td>
+            <td>列最小宽度</td>
             <td>Number</td>
-            <td>100</td>
+            <td>50</td>
         </tr>
         <tr>
             <td>isColDrag</td>
@@ -100,6 +100,11 @@ Vue.use(VueLinTable);
             <td>table-change</td>
             <td>多选模式下,点击多选框时触发</td>
             <td>selection：已选项数据</td>
+        </tr>
+         <tr>
+            <td>table-scroll</td>
+            <td>表格滚动时触发</td>
+            <td>event</td>
         </tr>
     </tbody>
 </table>
