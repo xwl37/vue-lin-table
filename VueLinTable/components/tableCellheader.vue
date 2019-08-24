@@ -1,7 +1,7 @@
 <template>
   <div
     class="lin-table-header"
-    :style="{textAlign:columnsItem.align}"
+    :style="{textAlign:tableAlign==''?columnsItem.align:tableAlign}"
   >
     <template v-if="showModuleKey=='selection'">
       <checkBox
@@ -44,6 +44,11 @@ export default {
     isAllCheckProp: {
       type: Boolean,
       default: false
+    },
+    //表格列位置
+    tableAlign: {
+      type: String,
+      default: ""
     }
   },
   data() {
@@ -73,6 +78,9 @@ export default {
 <style lang="less" scoped>
 .lin-table-header {
   padding: 0px 10px;
+}
+.lin-table-header,
+.lin-table-header * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

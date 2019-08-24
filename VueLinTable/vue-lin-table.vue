@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="lin-table"
     class="lin-table"
     :style="{height:height+'px'}"
   >
@@ -37,6 +38,7 @@
               :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
             >
               <tableCellheader
+                :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :columnsKey="columnsKey"
                 :isAllCheckProp="isAllCheck"
@@ -55,13 +57,20 @@
           @DOMMouseScroll="handleScroll"
           @mousewheel="handleScroll"
         >
-          <tr v-for="(dataItem,dataKey) in showData">
+          <tr
+            v-for="(dataItem,dataKey) in showData"
+            :class="{'bg-color':mouseClickRowKey===dataItem._index||mouseOverRowKey===dataKey}"
+            @mouseover="mouseOverRow(dataKey)"
+            @mouseleave="mouseLeaveRow(dataKey)"
+            @click="mouseClickRow(dataItem._index)"
+          >
             <td
               v-for="(columnsItem,columnsKey) in mainColumns"
               :style="{height:bodyRowHeight+'px'}"
-              :class="columnsItem.isShow?'':'hide-cell'"
+              :class="{'hide-cell':!columnsItem.isShow}"
             >
               <tableCellbody
+                :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :dataItem="dataItem"
                 :dataKey="dataItem._index"
@@ -89,6 +98,7 @@
               :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
             >
               <tableCellheader
+                :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :columnsKey="columnsKey"
                 :isAllCheckProp="isAllCheck"
@@ -107,12 +117,19 @@
           @DOMMouseScroll="handleScroll"
           @mousewheel="handleScroll"
         >
-          <tr v-for="(dataItem,dataKey) in showData">
+          <tr
+            v-for="(dataItem,dataKey) in showData"
+            :class="{'bg-color':mouseClickRowKey===dataItem._index||mouseOverRowKey===dataKey}"
+            @mouseover="mouseOverRow(dataKey)"
+            @mouseleave="mouseLeaveRow(dataKey)"
+            @click="mouseClickRow(dataItem._index)"
+          >
             <td
               v-for="(columnsItem,columnsKey) in leftColumns"
               :style="{width:columnsItem.width+'px',height:bodyRowHeight+'px'}"
             >
               <tableCellbody
+                :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :dataItem="dataItem"
                 :dataKey="dataKey"
@@ -140,6 +157,7 @@
               :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
             >
               <tableCellheader
+                :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :columnsKey="columnsKey"
                 :isAllCheckProp="isAllCheck"
@@ -158,12 +176,19 @@
           @DOMMouseScroll="handleScroll"
           @mousewheel="handleScroll"
         >
-          <tr v-for="(dataItem,dataKey) in showData">
+          <tr
+            v-for="(dataItem,dataKey) in showData"
+            :class="{'bg-color':mouseClickRowKey===dataItem._index||mouseOverRowKey===dataKey}"
+            @mouseover="mouseOverRow(dataKey)"
+            @mouseleave="mouseLeaveRow(dataKey)"
+            @click="mouseClickRow(dataItem._index)"
+          >
             <td
               v-for="(columnsItem,columnsKey) in rightColumns"
               :style="{width:columnsItem.width+'px',height:bodyRowHeight+'px'}"
             >
               <tableCellbody
+                :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :dataItem="dataItem"
                 :dataKey="dataKey"
@@ -238,6 +263,11 @@ export default {
     isColDrag: {
       type: Boolean,
       default: false
+    },
+    //表格列位置
+    tableAlign: {
+      type: String,
+      default: ""
     }
   },
   data() {
@@ -245,6 +275,7 @@ export default {
       showDataRows: 0, //显示行数
       tableClientWidth: 0, //表格宽度
       extraHeight: 0, //额外高度
+      isColWidthGt: false,
       isTableRight: false,
       isTableBottom: false,
       mainData: [], //处理后总数据
@@ -254,7 +285,10 @@ export default {
       firstDataKey: null, //显示数据首个数据key值
       mouseDownClientX: 0, //开始拖动鼠标点击clientX
       mouseCheckColType: null, //选择拖动的表格
-      mouseCheckColKey: null //选择拖动的列key
+      mouseCheckColKey: null, //选择拖动的列key
+      handleTableStyleTime: null,
+      mouseOverRowKey: -1,
+      mouseClickRowKey: -1
     };
   },
   computed: {
@@ -289,14 +323,6 @@ export default {
         }
       }
       return tableMainWidth;
-    },
-    //列总宽是否大于表格总宽度
-    isColWidthGt() {
-      if (this.tableMainWidth <= this.tableClientWidth) {
-        return true;
-      } else {
-        return false;
-      }
     },
     //模拟总高度
     hideHeight() {
@@ -347,15 +373,18 @@ export default {
     });
   },
   mounted() {
+    //定时检测更改表格样式
+    this.handleTableStyleTime = setInterval(() => {
+      this.handleTableStyle();
+    }, 500);
     this.init();
   },
-  updated() {
-    this.handleRoll();
+  destroyed() {
+    clearInterval(this.handleTableStyleTime);
   },
   methods: {
     //初始化
     init() {
-      this.getTableClientWidth();
       this.handleColumns();
       this.handleData();
     },
@@ -400,48 +429,19 @@ export default {
     },
     //原始数据处理
     handleData() {
-      let mainData = [];
+      this.mainData = [];
       for (let d in this.data) {
-        mainData[d] = { ...this.data[d] };
-        mainData[d]["_index"] = parseInt(d);
+        this.$set(this.mainData, d, { ...this.data[d] });
+        this.$set(this.mainData[d], "_index", parseInt(d));
         if (typeof this.data[d]["_checked"] == "undefined") {
-          mainData[d]["_checked"] = false;
+          this.$set(this.mainData[d], "_checked", false);
         }
         if (typeof this.data[d]["_disabled"] == "undefined") {
-          mainData[d]["_disabled"] = false;
+          this.$set(this.mainData[d], "_disabled", false);
         }
       }
-      this.mainData = mainData;
-    },
-    //处理表格样式
-    handleRoll() {
-      //计算最大显示的行数
-      let showDataRows =
-        this.$refs["lin-table-hide-main"].clientHeight /
-        (this.bodyRowHeight + 1);
-      this.showDataRows = Math.ceil(showDataRows);
-      if (showDataRows % 1 === 0) {
-        this.extraHeight = 0;
-      } else {
-        this.extraHeight = (showDataRows % 1) * this.bodyRowHeight;
-      }
-      //判断是否需要底部顶起
-      if (!this.isColWidthGt) {
-        for (let m in this.mainColumns) {
-          if (typeof this.mainColumns[m].width == "undefined") {
-            this.mainColumns[m].width = this.minWidth;
-          }
-        }
-        this.isTableBottom = true;
-      } else {
-        this.isTableBottom = false;
-      }
-      //判断是否需要右侧移动
-      if (this.$refs["lin-table-hide-main"].clientHeight <= this.hideHeight) {
-        this.isTableRight = true;
-      } else {
-        this.isTableRight = false;
-      }
+      //当数据有变动时，选中行效果去掉
+      this.mouseClickRowKey = -1;
     },
     //获取表格宽度
     getTableClientWidth() {
@@ -472,7 +472,8 @@ export default {
     },
     //按下宽度标识事件
     colWidthMouseDown(e, type, key) {
-      this.$refs["drag-line"].style.left = e.clientX - 10 + "px";
+      this.$refs["drag-line"].style.left =
+        e.clientX - this.$refs["lin-table"].offsetLeft + "px";
       this.mouseDownClientX = e.clientX;
       this.mouseCheckColType = type;
       this.mouseCheckColKey = key;
@@ -482,7 +483,8 @@ export default {
     //拖动宽度标识事件
     colWidthMouseMove(e) {
       if (this.mouseCheckColKey == null) return;
-      this.$refs["drag-line"].style.left = e.clientX - 10 + "px";
+      this.$refs["drag-line"].style.left =
+        e.clientX - this.$refs["lin-table"].offsetLeft + "px";
     },
     //弹起宽度标识事件
     colWidthMouseUp(e) {
@@ -558,6 +560,56 @@ export default {
       }
       let avgWidth = (tableClientWidth - this.columns.length - setWidth) / col;
       return avgWidth < 100 ? 100 : avgWidth;
+    },
+    //处理表格样式
+    handleTableStyle() {
+      //获取表格总宽度
+      this.getTableClientWidth();
+      //计算最大显示的行数
+      let showDataRows =
+        this.$refs["lin-table-hide-main"].clientHeight /
+        (this.bodyRowHeight + 1);
+      this.showDataRows = Math.ceil(showDataRows);
+      if (showDataRows % 1 === 0) {
+        this.extraHeight = 0;
+      } else {
+        this.extraHeight = (showDataRows % 1) * this.bodyRowHeight;
+      }
+      //判断列总宽度是否大于表格宽度
+      if (this.tableMainWidth <= this.tableClientWidth) {
+        this.isColWidthGt = true;
+      } else {
+        this.isColWidthGt = false;
+      }
+
+      //判断是否需要底部顶起
+      if (!this.isColWidthGt) {
+        for (let m in this.mainColumns) {
+          if (typeof this.mainColumns[m].width == "undefined") {
+            this.mainColumns[m].width = this.minWidth;
+          }
+        }
+        this.isTableBottom = true;
+      } else {
+        this.isTableBottom = false;
+      }
+      //判断是否需要右侧移动
+      if (this.$refs["lin-table-hide-main"].clientHeight <= this.hideHeight) {
+        this.isTableRight = true;
+      } else {
+        this.isTableRight = false;
+      }
+    },
+    mouseOverRow(key) {
+      this.mouseOverRowKey = key;
+    },
+    mouseLeaveRow(key) {
+      this.mouseOverRowKey = -1;
+    },
+    //行点击事件
+    mouseClickRow(key) {
+      this.mouseClickRowKey = key;
+      this.$emit("table-row-click", this.mainData[key]);
     }
   }
 };
@@ -627,7 +679,7 @@ export default {
 //拖动标识线
 .drag-line {
   width: 1px;
-  background-color: #e8eaec;
+  background-color: #585858;
   position: absolute;
   top: 0;
   bottom: 0;
@@ -659,5 +711,10 @@ tbody {
 //隐藏
 .hide-cell {
   visibility: hidden;
+}
+
+//table tr 鼠标浮动背景底色
+.bg-color {
+  background-color: #ebf7ff;
 }
 </style>

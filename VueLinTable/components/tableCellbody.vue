@@ -1,7 +1,7 @@
 <template>
   <div
     class="lin-table-body"
-    :style="{textAlign:columnsItem.align}"
+    :style="{textAlign:tableAlign==''?columnsItem.align:tableAlign}"
   >
     <template v-if="showModuleKey=='selection'">
       <checkBox
@@ -40,7 +40,12 @@ export default {
       type: Object,
       default: () => {}
     },
-    dataKey: Number
+    dataKey: Number,
+    //表格列位置
+    tableAlign: {
+      type: String,
+      default: ""
+    }
   },
   data() {
     return {
@@ -68,6 +73,10 @@ export default {
 <style lang="less" scoped>
 .lin-table-body {
   padding: 0 10px;
+}
+
+.lin-table-body,
+.lin-table-body * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

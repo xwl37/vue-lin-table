@@ -82,6 +82,12 @@ Vue.use(VueLinTable);
             <td>Boolean</td>
             <td>false</td>
         </tr>
+        <tr>
+            <td>tableAlign</td>
+            <td>表格全部列位置</td>
+            <td>String</td>
+            <td>-</td>
+        </tr>
     </tbody>
 </table>
 
@@ -105,6 +111,11 @@ Vue.use(VueLinTable);
             <td>table-scroll</td>
             <td>表格滚动时触发</td>
             <td>event</td>
+        </tr>
+         <tr>
+            <td>table-row-click</td>
+            <td>表格行点击触发</td>
+            <td>返回点击行数据</td>
         </tr>
     </tbody>
 </table>
