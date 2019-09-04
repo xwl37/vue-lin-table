@@ -9,6 +9,14 @@
         @on-change="checkAll"
       ></checkBox>
     </template>
+    <template v-if="showModuleKey=='sortable'">
+      <sort
+        :eventCreateTime="eventCreateTime"
+        :columnsType="columnsType"
+        :columnsKey="columnsKey"
+        :columnsItem="columnsItem"
+      >{{columnsItem.title}}</sort>
+    </template>
     <template v-if="showModuleKey=='default'">
       <span>{{columnsItem.title}}</span>
     </template>
@@ -25,10 +33,12 @@
 import child from "./child.js";
 import eventBus from "./eventBus.js";
 import checkBox from "./components/checkBox";
+import sort from "./components/sort";
 export default {
   name: "lin-table-header",
   components: {
-    checkBox
+    checkBox,
+    sort
   },
   watch: {
     isAllCheckProp(newVal) {
@@ -40,6 +50,7 @@ export default {
       type: Object,
       default: () => {}
     },
+    columnsType: String,
     columnsKey: Number,
     isAllCheckProp: {
       type: Boolean,
@@ -49,7 +60,8 @@ export default {
     tableAlign: {
       type: String,
       default: ""
-    }
+    },
+    eventCreateTime: String
   },
   data() {
     return {
@@ -61,6 +73,8 @@ export default {
     showModuleKey() {
       if (this.columnsItem.type == "selection") {
         return "selection";
+      } else if (this.columnsItem.sortable) {
+        return "sortable";
       } else if (typeof this.columnsItem.renderHeader == "undefined") {
         return "default";
       } else {
@@ -70,7 +84,7 @@ export default {
   },
   methods: {
     checkAll(item) {
-      eventBus.$emit("checkAll", item);
+      eventBus.$emit("checkAll" + this.eventCreateTime, item);
     }
   }
 };

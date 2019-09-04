@@ -10,6 +10,9 @@
         @on-change="checkOne"
       ></checkBox>
     </template>
+    <template v-if="showModuleKey=='tooltip'">
+      <tip :eventCreateTime="eventCreateTime">{{dataItem[columnsItem.key]}}</tip>
+    </template>
     <template v-if="showModuleKey=='default'">
       <span>{{dataItem[columnsItem.key]}}</span>
     </template>
@@ -26,10 +29,12 @@
 import child from "./child.js";
 import eventBus from "./eventBus.js";
 import checkBox from "./components/checkBox";
+import tip from "./components/tip";
 export default {
   name: "table-cell-body",
   components: {
-    checkBox
+    checkBox,
+    tip
   },
   props: {
     columnsItem: {
@@ -45,7 +50,8 @@ export default {
     tableAlign: {
       type: String,
       default: ""
-    }
+    },
+    eventCreateTime: String
   },
   data() {
     return {
@@ -56,6 +62,8 @@ export default {
     showModuleKey() {
       if (this.columnsItem.type == "selection") {
         return "selection";
+      } else if (this.columnsItem.tooltip) {
+        return "tooltip";
       } else if (typeof this.columnsItem.render == "undefined") {
         return "default";
       } else {
@@ -65,7 +73,7 @@ export default {
   },
   methods: {
     checkOne(item) {
-      eventBus.$emit("checkOne", item, this.dataItem);
+      eventBus.$emit("checkOne" + this.eventCreateTime, item, this.dataItem);
     }
   }
 };

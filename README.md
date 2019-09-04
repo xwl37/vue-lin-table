@@ -35,6 +35,12 @@ Vue.use(VueLinTable);
     </thead>
     <tbody>
         <tr>
+            <td>loading</td>
+            <td>表格加载中</td>
+            <td>Boolean</td>
+            <td>false</td>
+        </tr>
+        <tr>
             <td>height</td>
             <td>表格高度</td>
             <td>Number,String</td>
@@ -117,6 +123,11 @@ Vue.use(VueLinTable);
             <td>表格行点击触发</td>
             <td>返回点击行数据</td>
         </tr>
+         <tr>
+            <td>table-sort</td>
+            <td>字段排序点击返回</td>
+            <td>返回对应排序</td>
+        </tr>
     </tbody>
 </table>
 
@@ -155,6 +166,18 @@ Vue.use(VueLinTable);
             <td>列宽</td>
             <td>Number</td>
             <td>-</td>
+        </tr>
+        <tr>
+            <td>sortable</td>
+            <td>是否排序</td>
+            <td>Boolean</td>
+            <td>false</td>
+        </tr>
+        <tr>
+            <td>tooltip</td>
+            <td>是否使用气泡弹窗</td>
+            <td>Boolean</td>
+            <td>false</td>
         </tr>
         <tr>
             <td>align</td>

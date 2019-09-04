@@ -58,8 +58,8 @@ label.lin-checkbox-label input[type="checkbox"]:checked + .lin-checkbox:after {
   border-left: 2px solid #fff;
   border-bottom: 2px solid #fff;
   transform: rotate(-45deg) translate(-50%, -50%);
-  top: 5%;
-  left: 55%;
+  top: 2px;
+  left: 7px;
 }
 label.lin-checkbox-label input[type="checkbox"]:checked + .lin-checkbox {
   background-color: #2e8cf0;

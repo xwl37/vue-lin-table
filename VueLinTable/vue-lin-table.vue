@@ -2,7 +2,7 @@
   <div
     ref="lin-table"
     class="lin-table"
-    :style="{height:height+'px'}"
+    :style="{height:height==0?tableHeight+'px':height+'px'}"
   >
     <!-- 模拟内容高度 -->
     <div
@@ -38,6 +38,8 @@
               :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
             >
               <tableCellheader
+                columnsType="main"
+                :eventCreateTime="eventCreateTime"
                 :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :columnsKey="columnsKey"
@@ -70,6 +72,7 @@
               :class="{'hide-cell':!columnsItem.isShow}"
             >
               <tableCellbody
+                :eventCreateTime="eventCreateTime"
                 :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :dataItem="dataItem"
@@ -98,6 +101,8 @@
               :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
             >
               <tableCellheader
+                :eventCreateTime="eventCreateTime"
+                columnsType="left"
                 :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :columnsKey="columnsKey"
@@ -129,6 +134,7 @@
               :style="{width:columnsItem.width+'px',height:bodyRowHeight+'px'}"
             >
               <tableCellbody
+                :eventCreateTime="eventCreateTime"
                 :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :dataItem="dataItem"
@@ -157,6 +163,8 @@
               :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
             >
               <tableCellheader
+                columnsType="right"
+                :eventCreateTime="eventCreateTime"
                 :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :columnsKey="columnsKey"
@@ -188,6 +196,7 @@
               :style="{width:columnsItem.width+'px',height:bodyRowHeight+'px'}"
             >
               <tableCellbody
+                :eventCreateTime="eventCreateTime"
                 :tableAlign="tableAlign"
                 :columnsItem="columnsItem"
                 :dataItem="dataItem"
@@ -202,20 +211,38 @@
     <div
       ref="drag-line"
       class="drag-line"
+      :style="{height:height==0?tableHeight+'px':height+'px'}"
     ></div>
+    <!-- 加载中 -->
+    <loading v-if="loading"></loading>
+    <!-- tooltip 弹窗 -->
+    <div
+      v-if="isTooltipShow"
+      class="tooltip"
+      :style="{top:tooltipTop+'px',left:tooltipLeft+'px'}"
+      @mouseover="()=>this.isTooltipShow=true"
+      @mouseleave="()=>this.isTooltipShow=false"
+    >
+      {{tooltipContent}}
+    </div>
   </div>
 </template>
 <script>
 import tableCellheader from "./components/tableCellheader";
 import tableCellbody from "./components/tableCellbody";
+import loading from "./components/loading";
 import eventBus from "./components/eventBus.js";
 export default {
   name: "lin-table",
   components: {
     tableCellheader,
-    tableCellbody
+    tableCellbody,
+    loading
   },
   watch: {
+    editMainColumns() {
+      this.handleColumns();
+    },
     columns() {
       this.handleColumns();
     },
@@ -224,10 +251,20 @@ export default {
     }
   },
   props: {
+    //加载中
+    loading: {
+      type: Boolean,
+      default: false
+    },
     //整体高度
     height: {
       type: [Number, String],
-      default: 600
+      default: 0
+    },
+    //修改主列数据
+    editMainColumns: {
+      type: Array,
+      default: () => []
     },
     //原始列数据
     columns: {
@@ -272,6 +309,8 @@ export default {
   },
   data() {
     return {
+      tableHeight: 0,
+      eventCreateTime: String(new Date().getTime() + Math.random() * 100), //区分事件标识
       showDataRows: 0, //显示行数
       tableClientWidth: 0, //表格宽度
       extraHeight: 0, //额外高度
@@ -283,12 +322,17 @@ export default {
       leftColumns: [], //左侧浮动列数据
       rightColumns: [], //右侧浮动列数据
       firstDataKey: null, //显示数据首个数据key值
+      colWidthMouseDownX: 0,
       mouseDownClientX: 0, //开始拖动鼠标点击clientX
       mouseCheckColType: null, //选择拖动的表格
       mouseCheckColKey: null, //选择拖动的列key
       handleTableStyleTime: null,
       mouseOverRowKey: -1,
-      mouseClickRowKey: -1
+      mouseClickRowKey: -1,
+      isTooltipShow: false,
+      tooltipTop: 0,
+      tooltipLeft: 0,
+      tooltipContent: ""
     };
   },
   computed: {
@@ -296,9 +340,21 @@ export default {
     isAllCheck() {
       let allcheck = true;
       for (let m in this.mainData) {
-        if (!this.mainData[m]["_checked"]) {
+        if (!this.mainData[m]["_disabled"] && !this.mainData[m]["_checked"]) {
           allcheck = false;
           break;
+        }
+      }
+      if (allcheck) {
+        let isAllDisabled = true;
+        for (let m2 in this.mainData) {
+          if (!this.mainData[m2]["_disabled"]) {
+            isAllDisabled = false;
+            break;
+          }
+        }
+        if (isAllDisabled) {
+          allcheck = false;
         }
       }
       return allcheck;
@@ -313,16 +369,6 @@ export default {
         }
       }
       return isColSetAllWidth;
-    },
-    //mian-table的总设置宽度
-    tableMainWidth() {
-      let tableMainWidth = 0;
-      for (let m in this.mainColumns) {
-        if (typeof this.mainColumns[m].width != "undefined") {
-          tableMainWidth += this.mainColumns[m].width;
-        }
-      }
-      return tableMainWidth;
     },
     //模拟总高度
     hideHeight() {
@@ -353,16 +399,20 @@ export default {
     }
   },
   created() {
-    eventBus.$on("checkAll", item => {
+    //全选事件
+    eventBus.$on("checkAll" + this.eventCreateTime, item => {
       let selectData = {};
       for (let d in this.data) {
-        selectData[d] = this.data[d];
-        this.$set(this.mainData[d], "_checked", item);
+        if (!this.mainData[d]._disabled) {
+          selectData[d] = this.data[d];
+          this.$set(this.mainData[d], "_checked", item);
+        }
       }
       eventBus.checkData = item ? selectData : {};
       this.$emit("table-change", eventBus.objToArr(eventBus.checkData));
     });
-    eventBus.$on("checkOne", (item, columns) => {
+    //单选事件
+    eventBus.$on("checkOne" + this.eventCreateTime, (item, columns) => {
       if (item) {
         eventBus.checkData[columns._index] = this.data[columns._index];
       } else {
@@ -371,13 +421,44 @@ export default {
       this.$set(this.mainData[columns._index], "_checked", item);
       this.$emit("table-change", eventBus.objToArr(eventBus.checkData));
     });
+    //气泡弹窗鼠标悬浮事件
+    eventBus.$on("tipMouseOver" + this.eventCreateTime, item => {
+      this.tooltipTop = item.bottom;
+      this.tooltipLeft = item.left;
+      this.tooltipContent = item.content;
+      this.isTooltipShow = true;
+    });
+    //气泡弹窗鼠标离开事件
+    eventBus.$on("tipMouseLeave" + this.eventCreateTime, item => {
+      this.isTooltipShow = item;
+    });
+    //表格排序事件
+    eventBus.$on("table-sort-change" + this.eventCreateTime, item => {
+      switch (item.columnsType) {
+        case "main":
+          this.$set(this.mainColumns[item.columnsKey], "sortKey", item.sortKey);
+          break;
+        case "left":
+          this.$set(this.leftColumns[item.columnsKey], "sortKey", item.sortkey);
+          break;
+        case "right":
+          this.$set(
+            this.rightColumns[item.columnsKey],
+            "sortKey",
+            item.sortkey
+          );
+          break;
+      }
+      this.$emit("table-sort", item.sort);
+    });
   },
   mounted() {
+    //初始化
+    this.init();
     //定时检测更改表格样式
     this.handleTableStyleTime = setInterval(() => {
       this.handleTableStyle();
-    }, 500);
-    this.init();
+    }, 200);
   },
   destroyed() {
     clearInterval(this.handleTableStyleTime);
@@ -385,6 +466,9 @@ export default {
   methods: {
     //初始化
     init() {
+      let nowTableHeight = Math.floor((document.body.clientHeight * 6.6) / 10);
+      this.getShowDataRows(nowTableHeight);
+      this.handleTableStyle();
       this.handleColumns();
       this.handleData();
     },
@@ -393,15 +477,15 @@ export default {
       let mainColumns = [];
       let leftColumns = [];
       let rightColumns = [];
+      let editMainColumns = [...this.editMainColumns];
       let columns = this.columns;
-      let avgWidth = 0;
-      //在拖动列宽的情况下，获取未设置宽度的列的宽度
-      if (this.isColDrag) {
-        avgWidth = this.handleAvgWidth();
-      }
+      let avgWidth = this.handleAvgWidth();
       for (let c in columns) {
         let columnsItem = { ...columns[c] };
-        if (this.isColDrag && typeof columnsItem.width == "undefined") {
+        if (columnsItem.sortable) {
+          columnsItem.sortKey = -1;
+        }
+        if (typeof columnsItem.width == "undefined") {
           columnsItem.width = avgWidth;
         }
         if (typeof columnsItem["fixed"] != "undefined") {
@@ -420,10 +504,27 @@ export default {
           }
         } else {
           columnsItem["isShow"] = true;
-          mainColumns.push(columnsItem);
+          if (editMainColumns.length > 0) {
+            for (let e in editMainColumns) {
+              if (editMainColumns[e]["key"] == columnsItem["key"]) {
+                let cItem = {
+                  ...columnsItem,
+                  ...editMainColumns[e]
+                };
+                editMainColumns[e] = cItem;
+                break;
+              }
+            }
+          } else {
+            mainColumns.push(columnsItem);
+          }
         }
       }
-      this.mainColumns = mainColumns.concat(rightColumns);
+      if (editMainColumns.length > 0) {
+        this.mainColumns = mainColumns.concat(editMainColumns, rightColumns);
+      } else {
+        this.mainColumns = mainColumns.concat(rightColumns);
+      }
       this.leftColumns = leftColumns;
       this.rightColumns = rightColumns;
     },
@@ -440,12 +541,20 @@ export default {
           this.$set(this.mainData[d], "_disabled", false);
         }
       }
-      //当数据有变动时，选中行效果去掉
-      this.mouseClickRowKey = -1;
     },
-    //获取表格宽度
-    getTableClientWidth() {
-      this.tableClientWidth = this.$refs["lin-table-main"].clientWidth;
+    //计算最大显示的行数
+    getShowDataRows(tableHeight) {
+      //计算最大显示的行数
+      let showHideHeight = this.isTableBottom
+        ? tableHeight - this.headerHeight - this.wheelHeight
+        : tableHeight - this.headerHeight;
+      let showDataRows = showHideHeight / (this.bodyRowHeight + 1);
+      this.showDataRows = Math.ceil(showDataRows);
+      if (showDataRows % 1 === 0) {
+        this.extraHeight = 0;
+      } else {
+        this.extraHeight = (showDataRows % 1) * this.bodyRowHeight;
+      }
     },
     //主体数据滚轮事件
     handleScroll(e) {
@@ -464,6 +573,11 @@ export default {
         }
       }
     },
+
+    //获取表格宽度
+    getTableClientWidth() {
+      this.tableClientWidth = this.$refs["lin-table-main"].clientWidth;
+    },
     //获取显示首数据标识
     handleFirstDataKey(e) {
       let scrollTop = this.$refs["lin-table-hide-main"].scrollTop;
@@ -472,8 +586,9 @@ export default {
     },
     //按下宽度标识事件
     colWidthMouseDown(e, type, key) {
-      this.$refs["drag-line"].style.left =
-        e.clientX - this.$refs["lin-table"].offsetLeft + "px";
+      let linTableLeft = this.$refs["lin-table"].getBoundingClientRect().left;
+      this.colWidthMouseDownX = e.clientX - linTableLeft;
+      this.$refs["drag-line"].style.left = e.clientX - linTableLeft + "px";
       this.mouseDownClientX = e.clientX;
       this.mouseCheckColType = type;
       this.mouseCheckColKey = key;
@@ -484,7 +599,7 @@ export default {
     colWidthMouseMove(e) {
       if (this.mouseCheckColKey == null) return;
       this.$refs["drag-line"].style.left =
-        e.clientX - this.$refs["lin-table"].offsetLeft + "px";
+        this.colWidthMouseDownX + (e.clientX - this.mouseDownClientX) + "px";
     },
     //弹起宽度标识事件
     colWidthMouseUp(e) {
@@ -499,6 +614,10 @@ export default {
             "width",
             mainWidth < this.minWidth ? this.minWidth : mainWidth
           );
+          this.$emit("col-width-change", {
+            key: this.mainColumns[this.mouseCheckColKey]["key"],
+            width: mainWidth < this.minWidth ? this.minWidth : mainWidth
+          });
           break;
         case "left":
           let leftWidth =
@@ -563,20 +682,19 @@ export default {
     },
     //处理表格样式
     handleTableStyle() {
+      //自动调整高度
+      if (this.height == 0) this.autoTableHeight();
       //获取表格总宽度
       this.getTableClientWidth();
-      //计算最大显示的行数
-      let showDataRows =
-        this.$refs["lin-table-hide-main"].clientHeight /
-        (this.bodyRowHeight + 1);
-      this.showDataRows = Math.ceil(showDataRows);
-      if (showDataRows % 1 === 0) {
-        this.extraHeight = 0;
-      } else {
-        this.extraHeight = (showDataRows % 1) * this.bodyRowHeight;
-      }
       //判断列总宽度是否大于表格宽度
-      if (this.tableMainWidth <= this.tableClientWidth) {
+      let tableMainWidth = 0;
+      for (let m in this.mainColumns) {
+        if (typeof this.mainColumns[m].width != "undefined") {
+          tableMainWidth += this.mainColumns[m].width;
+        }
+      }
+      tableMainWidth -= this.mainColumns.length;
+      if (tableMainWidth <= this.tableClientWidth) {
         this.isColWidthGt = true;
       } else {
         this.isColWidthGt = false;
@@ -600,9 +718,11 @@ export default {
         this.isTableRight = false;
       }
     },
+    //行鼠标悬浮事件
     mouseOverRow(key) {
       this.mouseOverRowKey = key;
     },
+    //行鼠标离开事件
     mouseLeaveRow(key) {
       this.mouseOverRowKey = -1;
     },
@@ -610,6 +730,20 @@ export default {
     mouseClickRow(key) {
       this.mouseClickRowKey = key;
       this.$emit("table-row-click", this.mainData[key]);
+    },
+    //自动计算高度
+    autoTableHeight() {
+      let nowTableHeight = Math.floor((document.body.clientHeight * 6.6) / 10);
+      if (this.tableHeight != nowTableHeight) {
+        this.tableHeight = nowTableHeight;
+        this.getShowDataRows(nowTableHeight);
+      }
+    },
+    //重置表格
+    resetTable() {
+      this.mouseClickRowKey = -1;
+      this.$refs["lin-table-hide-main"].scrollTop = 0;
+      this.$refs["lin-table-main"].scrollLeft = 0;
     }
   }
 };
@@ -681,8 +815,6 @@ export default {
   width: 1px;
   background-color: #585858;
   position: absolute;
-  top: 0;
-  bottom: 0;
   left: -100px;
   z-index: 4;
 }
@@ -716,5 +848,20 @@ tbody {
 //table tr 鼠标浮动背景底色
 .bg-color {
   background-color: #ebf7ff;
+}
+
+//tooltip 弹窗
+.tooltip {
+  width: 300px;
+  max-height: 400px;
+  border-radius: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 5px;
+  word-wrap: break-word;
+  background-color: #212121;
+  color: #fff;
+  position: fixed;
+  z-index: 9999;
 }
 </style>
