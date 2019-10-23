@@ -10,6 +10,9 @@
         @on-change="checkOne"
       ></checkBox>
     </template>
+    <template v-if="showModuleKey=='index'">
+      <span>{{dataKey+1}}</span>
+    </template>
     <template v-if="showModuleKey=='tooltip'">
       <tip :eventCreateTime="eventCreateTime">{{dataItem[columnsItem.key]}}</tip>
     </template>
@@ -62,6 +65,8 @@ export default {
     showModuleKey() {
       if (this.columnsItem.type == "selection") {
         return "selection";
+      } else if (this.columnsItem.type == "index") {
+        return "index";
       } else if (this.columnsItem.tooltip) {
         return "tooltip";
       } else if (typeof this.columnsItem.render == "undefined") {

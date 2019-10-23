@@ -27,7 +27,7 @@
         :cellspacing="0"
         :cellpadding="0"
         :border="0"
-        :style="{width:isColSetAllWidth&&isColWidthGt?'auto':'100%',tableLayout:isColSetAllWidth?'fixed':'auto'}"
+        :style="{width:mainColumns.length>0?'10px':'0px',tableLayout:'fixed'}"
       >
         <thead>
           <tr>
@@ -92,13 +92,14 @@
         :cellspacing="0"
         :cellpadding="0"
         :border="0"
-        :style="{width:'auto'}"
+        :style="{width:leftColumns.length>0?'10px':'0px',tableLayout:'fixed'}"
       >
+
         <thead>
           <tr>
             <th
               v-for="(columnsItem,columnsKey) in leftColumns"
-              :style="{width:columnsItem.width+'px',height:headerHeight+'px'}"
+              :style="{width:columnsItem.width+'px',height:headerHeight+'px',overflow:'hidden'}"
             >
               <tableCellheader
                 :eventCreateTime="eventCreateTime"
@@ -110,7 +111,7 @@
               ></tableCellheader>
               <!-- 拖动标识 -->
               <div
-                v-if="isColDrag"
+                v-if="isColDrag&&typeof columnsItem.key!='undefined'"
                 class="cursor-col-resize"
                 :style="{right:'-5px'}"
                 @mousedown="colWidthMouseDown($event,'left',columnsKey)"
@@ -154,7 +155,7 @@
         :cellspacing="0"
         :cellpadding="0"
         :border="0"
-        :style="{width:'auto'}"
+        :style="{width:rightColumns.length>0?'10px':'0px',tableLayout:'fixed'}"
       >
         <thead>
           <tr>
@@ -172,7 +173,7 @@
               ></tableCellheader>
               <!-- 拖动标识 -->
               <div
-                v-if="isColDrag"
+                v-if="isColDrag&&typeof columnsItem.key!='undefined'"
                 class="cursor-col-resize"
                 :style="{left:'-5px'}"
                 @mousedown="colWidthMouseDown($event,'right',columnsKey)"
@@ -240,7 +241,7 @@ export default {
     loading
   },
   watch: {
-    editMainColumns() {
+    editColumns() {
       this.handleColumns();
     },
     columns() {
@@ -262,7 +263,7 @@ export default {
       default: 0
     },
     //修改主列数据
-    editMainColumns: {
+    editColumns: {
       type: Array,
       default: () => []
     },
@@ -309,6 +310,9 @@ export default {
   },
   data() {
     return {
+      tableScrollTop: 0,
+      sortArr: [], //排序记录
+      checkData: {}, //选择的数据
       tableHeight: 0,
       eventCreateTime: String(new Date().getTime() + Math.random() * 100), //区分事件标识
       showDataRows: 0, //显示行数
@@ -408,18 +412,18 @@ export default {
           this.$set(this.mainData[d], "_checked", item);
         }
       }
-      eventBus.checkData = item ? selectData : {};
-      this.$emit("table-change", eventBus.objToArr(eventBus.checkData));
+      this.checkData = item ? selectData : {};
+      this.$emit("table-change", this.objToArr(this.checkData));
     });
     //单选事件
     eventBus.$on("checkOne" + this.eventCreateTime, (item, columns) => {
       if (item) {
-        eventBus.checkData[columns._index] = this.data[columns._index];
+        this.checkData[columns._index] = this.data[columns._index];
       } else {
-        delete eventBus.checkData[columns._index];
+        delete this.checkData[columns._index];
       }
       this.$set(this.mainData[columns._index], "_checked", item);
-      this.$emit("table-change", eventBus.objToArr(eventBus.checkData));
+      this.$emit("table-change", this.objToArr(this.checkData));
     });
     //气泡弹窗鼠标悬浮事件
     eventBus.$on("tipMouseOver" + this.eventCreateTime, item => {
@@ -449,7 +453,21 @@ export default {
           );
           break;
       }
-      this.$emit("table-sort", item.sort);
+      let index = this.sortArr.findIndex((value, index, arr) => {
+        return value.includes(item.sort);
+      });
+      if (index != -1) {
+        this.sortArr.splice(index, 1);
+      }
+      switch (item.sortKey) {
+        case 0:
+          this.sortArr.push(item.sort + " asc");
+          break;
+        case 1:
+          this.sortArr.push(item.sort + " desc");
+          break;
+      }
+      this.$emit("table-sort", this.sortArr.join(","));
     });
   },
   mounted() {
@@ -464,6 +482,14 @@ export default {
     clearInterval(this.handleTableStyleTime);
   },
   methods: {
+    //对象转数组
+    objToArr(obj) {
+      let arr = [];
+      for (let o in obj) {
+        arr.push(obj[o]);
+      }
+      return arr;
+    },
     //初始化
     init() {
       let nowTableHeight = Math.floor((document.body.clientHeight * 6.6) / 10);
@@ -477,55 +503,69 @@ export default {
       let mainColumns = [];
       let leftColumns = [];
       let rightColumns = [];
-      let editMainColumns = [...this.editMainColumns];
-      let columns = this.columns;
-      let avgWidth = this.handleAvgWidth();
-      for (let c in columns) {
-        let columnsItem = { ...columns[c] };
-        if (columnsItem.sortable) {
-          columnsItem.sortKey = -1;
+      let columns1 =
+        this.editColumns.length > 0 ? this.editColumns : this.columns;
+      let columns2 =
+        this.editColumns.length > 0 ? this.columns : this.editColumns;
+
+      //取出浮动非字段列
+      if (this.editColumns.length > 0) {
+        for (let col in this.columns) {
+          if (!this.columns[col].key && this.columns[col].fixed) {
+            switch (this.columns[col].fixed) {
+              case "left":
+                leftColumns.push(this.columns[col]);
+                break;
+              case "right":
+                rightColumns.push(this.columns[col]);
+                break;
+            }
+          }
         }
+      }
+      let avgWidth = this.handleAvgWidth();
+      for (let c in columns1) {
+        let columnsItem = { ...columns1[c] };
+        //增加列宽
         if (typeof columnsItem.width == "undefined") {
           columnsItem.width = avgWidth;
         }
-        if (typeof columnsItem["fixed"] != "undefined") {
-          columnsItem["isShow"] = false;
-          if (typeof columnsItem.width == "undefined") {
-            columnsItem.width = this.minWidth;
-          }
-          switch (columnsItem["fixed"]) {
-            case "left":
-              mainColumns.unshift(columnsItem);
-              leftColumns.unshift(columnsItem);
+
+        //合并列的修改参数，调整位置，显示对应列
+        if (columns2.length > 0) {
+          for (let e in columns2) {
+            if (columns2[e]["key"] == columnsItem["key"]) {
+              columnsItem = {
+                ...columns2[e],
+                ...columnsItem
+              };
               break;
-            case "right":
-              rightColumns.push(columnsItem);
-              break;
-          }
-        } else {
-          columnsItem["isShow"] = true;
-          if (editMainColumns.length > 0) {
-            for (let e in editMainColumns) {
-              if (editMainColumns[e]["key"] == columnsItem["key"]) {
-                let cItem = {
-                  ...columnsItem,
-                  ...editMainColumns[e]
-                };
-                editMainColumns[e] = cItem;
-                break;
-              }
             }
-          } else {
-            mainColumns.push(columnsItem);
           }
         }
-      }
-      if (editMainColumns.length > 0) {
-        this.mainColumns = mainColumns.concat(editMainColumns, rightColumns);
-      } else {
-        this.mainColumns = mainColumns.concat(rightColumns);
+
+        //是否排序
+        if (columnsItem.sortable) {
+          columnsItem.sortKey = -1;
+        }
+
+        switch (columnsItem["fixed"]) {
+          case "left":
+            columnsItem["isShow"] = false;
+            leftColumns.push(columnsItem);
+            break;
+          case "right":
+            columnsItem["isShow"] = false;
+            rightColumns.unshift(columnsItem);
+            break;
+          default:
+            columnsItem["isShow"] = true;
+            mainColumns.push(columnsItem);
+            break;
+        }
       }
       this.leftColumns = leftColumns;
+      this.mainColumns = leftColumns.concat(mainColumns).concat(rightColumns);
       this.rightColumns = rightColumns;
     },
     //原始数据处理
@@ -561,17 +601,22 @@ export default {
       //兼容浏览器
       if (e.type == "DOMMouseScroll") {
         if (e.detail > 0) {
-          this.$refs["lin-table-hide-main"].scrollTop += this.bodyRowHeight;
+          this.$refs["lin-table-hide-main"].scrollTop =
+            this.tableScrollTop + this.bodyRowHeight;
         } else {
-          this.$refs["lin-table-hide-main"].scrollTop -= this.bodyRowHeight;
+          this.$refs["lin-table-hide-main"].scrollTop =
+            this.tableScrollTop - this.bodyRowHeight;
         }
       } else {
         if (e.deltaY > 0) {
-          this.$refs["lin-table-hide-main"].scrollTop += this.bodyRowHeight;
+          this.$refs["lin-table-hide-main"].scrollTop =
+            this.tableScrollTop + this.bodyRowHeight;
         } else {
-          this.$refs["lin-table-hide-main"].scrollTop -= this.bodyRowHeight;
+          this.$refs["lin-table-hide-main"].scrollTop =
+            this.tableScrollTop - this.bodyRowHeight;
         }
       }
+      this.tableScrollTop = this.$refs["lin-table-hide-main"].scrollTop;
     },
 
     //获取表格宽度
@@ -582,6 +627,7 @@ export default {
     handleFirstDataKey(e) {
       let scrollTop = this.$refs["lin-table-hide-main"].scrollTop;
       this.firstDataKey = Math.ceil(scrollTop / this.bodyRowHeight);
+      this.tableScrollTop = this.$refs["lin-table-hide-main"].scrollTop;
       this.$emit("table-scroll", e);
     },
     //按下宽度标识事件
@@ -609,30 +655,38 @@ export default {
           let mainWidth =
             this.$refs["main-header-th"][this.mouseCheckColKey].offsetWidth +
             (e.clientX - this.mouseDownClientX);
+          let setMainWidth =
+            mainWidth < this.minWidth ? this.minWidth : mainWidth;
           this.$set(
             this.mainColumns[this.mouseCheckColKey],
             "width",
-            mainWidth < this.minWidth ? this.minWidth : mainWidth
+            setMainWidth
           );
           this.$emit("col-width-change", {
             key: this.mainColumns[this.mouseCheckColKey]["key"],
-            width: mainWidth < this.minWidth ? this.minWidth : mainWidth
+            width: setMainWidth
           });
           break;
         case "left":
           let leftWidth =
             this.$refs["main-header-th"][this.mouseCheckColKey].offsetWidth +
             (e.clientX - this.mouseDownClientX);
+          let setLeftWidth =
+            leftWidth < this.minWidth ? this.minWidth : leftWidth;
           this.$set(
             this.leftColumns[this.mouseCheckColKey],
             "width",
-            leftWidth < this.minWidth ? this.minWidth : leftWidth
+            setLeftWidth
           );
           this.$set(
             this.mainColumns[this.mouseCheckColKey],
             "width",
-            leftWidth < this.minWidth ? this.minWidth : leftWidth
+            setLeftWidth
           );
+          this.$emit("col-width-change", {
+            key: this.leftColumns[this.mouseCheckColKey]["key"],
+            width: setLeftWidth
+          });
           break;
         case "right":
           let rightWidth =
@@ -642,6 +696,8 @@ export default {
                 this.mouseCheckColKey
             ].offsetWidth -
             (e.clientX - this.mouseDownClientX);
+          let setRightWidth =
+            rightWidth < this.minWidth ? this.minWidth : rightWidth;
           this.$set(
             this.mainColumns[
               this.mainColumns.length -
@@ -649,13 +705,17 @@ export default {
                 this.mouseCheckColKey
             ],
             "width",
-            rightWidth < this.minWidth ? this.minWidth : rightWidth
+            setRightWidth
           );
           this.$set(
             this.rightColumns[this.mouseCheckColKey],
             "width",
-            rightWidth < this.minWidth ? this.minWidth : rightWidth
+            setRightWidth
           );
+          this.$emit("col-width-change", {
+            key: this.rightColumns[this.mouseCheckColKey]["key"],
+            width: setRightWidth
+          });
           break;
       }
 
@@ -672,7 +732,7 @@ export default {
       let col = 0;
       for (let c in this.columns) {
         if (typeof this.columns[c].width != "undefined") {
-          setWidth += this.columns[c].width;
+          setWidth += parseFloat(this.columns[c].width);
         } else {
           col++;
         }
@@ -684,6 +744,10 @@ export default {
     handleTableStyle() {
       //自动调整高度
       if (this.height == 0) this.autoTableHeight();
+      //判断滚动条位置
+      if (this.$refs["lin-table-hide-main"].scrollTop != this.tableScrollTop) {
+        this.$refs["lin-table-hide-main"].scrollTop = this.tableScrollTop;
+      }
       //获取表格总宽度
       this.getTableClientWidth();
       //判断列总宽度是否大于表格宽度
@@ -742,6 +806,8 @@ export default {
     //重置表格
     resetTable() {
       this.mouseClickRowKey = -1;
+      this.checkData = {};
+      this.tableScrollTop = 0;
       this.$refs["lin-table-hide-main"].scrollTop = 0;
       this.$refs["lin-table-main"].scrollLeft = 0;
     }
@@ -756,6 +822,7 @@ export default {
   position: relative;
   overflow: hidden;
 }
+
 .lin-table-hide-main {
   position: absolute;
   left: 0;
@@ -763,10 +830,12 @@ export default {
   overflow-x: hidden;
   overflow-y: auto;
   z-index: 1;
+
   .lin-table-hide-main-box {
     width: 100%;
   }
 }
+
 .lin-table-main {
   position: absolute;
   top: 0;
@@ -823,6 +892,7 @@ export default {
 table {
   border-collapse: collapse;
 }
+
 table td,
 table th {
   font-size: 12px;

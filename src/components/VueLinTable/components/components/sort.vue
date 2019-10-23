@@ -24,6 +24,11 @@
 import eventBus from "../eventBus";
 export default {
   name: "sort",
+  data() {
+    return {
+      sortArr: []
+    };
+  },
   props: {
     columnsItem: {
       type: Object,
@@ -47,7 +52,7 @@ export default {
             case 1:
               eventBus.$emit("table-sort-change" + this.eventCreateTime, {
                 sortKey: -1,
-                sort: "",
+                sort: this.columnsItem.key,
                 columnsKey: this.columnsKey,
                 columnsType: this.columnsType
               });
@@ -57,7 +62,7 @@ export default {
         case 0:
           eventBus.$emit("table-sort-change" + this.eventCreateTime, {
             sortKey: 0,
-            sort: this.columnsItem.key + " asc",
+            sort: this.columnsItem.key,
             columnsKey: this.columnsKey,
             columnsType: this.columnsType
           });
@@ -65,7 +70,7 @@ export default {
         case 1:
           eventBus.$emit("table-sort-change" + this.eventCreateTime, {
             sortKey: 1,
-            sort: this.columnsItem.key + " desc",
+            sort: this.columnsItem.key,
             columnsKey: this.columnsKey,
             columnsType: this.columnsType
           });
