@@ -776,11 +776,13 @@ export default {
         this.isTableBottom = false;
       }
       //判断是否需要右侧移动
-      if (this.$refs["lin-table-hide-main"].clientHeight <= this.hideHeight) {
-        this.isTableRight = true;
-      } else {
-        this.isTableRight = false;
-      }
+      this.$nextTick(function(){
+        if (this.$refs["lin-table-hide-main"].clientHeight <= this.hideHeight) {
+          this.isTableRight = true;
+        } else {
+          this.isTableRight = false;
+        }
+      })
     },
     //行鼠标悬浮事件
     mouseOverRow(key) {
